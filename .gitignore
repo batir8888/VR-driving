@@ -1,0 +1,15 @@
+# результаты сборки и запусков
+out/
+bin/
+obj/
+*.class
+# временные каталоги
+tmp/
+.vs/
+# Unity (если проект Unity будет добавлен): временные каталоги, .meta сохраняются
+[Ll]ibrary/
+[Tt]emp/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/

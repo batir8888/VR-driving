@@ -1,0 +1,33 @@
+{
+  "case": "intersection/did_not_reach_end_zone",
+  "exercise_id": "intersection",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 9000,
+  "expected_violations": ["TARGET_ZONE_MISSED"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 9000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 50.0,
+        "heading_deg": 0.0,
+        "speed_mps": 5.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

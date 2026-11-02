@@ -1,0 +1,81 @@
+{
+  "case": "intersection/two_speeding_episodes",
+  "exercise_id": "intersection",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 9000,
+  "expected_violations": ["SPEED_LIMIT_EXCEEDED", "SPEED_LIMIT_EXCEEDED"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 1000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 10.0,
+        "heading_deg": 0.0,
+        "speed_mps": 9.5,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 2000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 20.0,
+        "heading_deg": 0.0,
+        "speed_mps": 9.5,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 4,
+      "t_ms": 3000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 28.0,
+        "heading_deg": 0.0,
+        "speed_mps": 8.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 5,
+      "t_ms": 4000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 40.0,
+        "heading_deg": 0.0,
+        "speed_mps": 9.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 6,
+      "t_ms": 9000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 65.0,
+        "heading_deg": 0.0,
+        "speed_mps": 5.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "case": "intersection/left_area",
+  "exercise_id": "intersection",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 9000,
+  "expected_violations": ["LEFT_AREA"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 3000,
+      "type": "BOUNDARY_CROSSED",
+      "context": {
+        "direction": "EXIT"
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 9000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 65.0,
+        "heading_deg": 0.0,
+        "speed_mps": 5.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

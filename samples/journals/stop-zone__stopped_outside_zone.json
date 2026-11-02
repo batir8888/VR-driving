@@ -1,0 +1,45 @@
+{
+  "case": "stop-zone/stopped_outside_zone",
+  "exercise_id": "stop-zone",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 6000,
+  "expected_violations": ["TARGET_ZONE_MISSED"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 3000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 20.0,
+        "heading_deg": 0.0,
+        "speed_mps": 8.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 6000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 30.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

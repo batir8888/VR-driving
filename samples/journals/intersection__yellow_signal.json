@@ -1,0 +1,41 @@
+{
+  "case": "intersection/yellow_signal",
+  "exercise_id": "intersection",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 12000,
+  "expected_violations": ["STOP_LINE_PROHIBITED"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 8500,
+      "type": "STOP_LINE_CROSSED",
+      "context": {
+        "signal": "YELLOW"
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 12000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 65.0,
+        "heading_deg": 0.0,
+        "speed_mps": 5.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "case": "intersection/speed_at_limit_plus_tolerance",
+  "exercise_id": "intersection",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 9000,
+  "expected_violations": [],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 2000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 20.0,
+        "heading_deg": 0.0,
+        "speed_mps": 8.8,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 9000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 65.0,
+        "heading_deg": 0.0,
+        "speed_mps": 5.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

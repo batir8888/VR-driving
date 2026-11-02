@@ -1,0 +1,3 @@
+{"exercise_id": "reverse-parking", "rules_version": 1,
+ "enabled_rules": ["COLLISION", "BORDER_CONTACT", "LEFT_AREA", "NOT_STOPPED", "TARGET_ZONE_MISSED", "WRONG_ORIENTATION", "WRONG_ENTRY_DIRECTION", "ATTEMPT_ABORTED"],
+ "change_note": null}

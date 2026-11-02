@@ -1,0 +1,43 @@
+{
+  "case": "reverse-parking/neighbour_car_contact",
+  "exercise_id": "reverse-parking",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 6000,
+  "expected_violations": ["COLLISION"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 3.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "REVERSE"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 4000,
+      "type": "CONTACT_STARTED",
+      "context": {
+        "object_id": "car-right",
+        "object_kind": "OBSTACLE",
+        "speed_mps": 0.8
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 6000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": -7.5,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "REVERSE"
+      }
+    }
+  ]
+}

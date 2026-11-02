@@ -1,0 +1,22 @@
+{
+  "exercise_id": "intersection",
+  "scenario_version": 1,
+  "task_text": "Проедьте регулируемый перекрёсток прямо и достигните конечной зоны. Пересекайте стоп-линию только на разрешающий сигнал светофора и не превышайте ограничение скорости.",
+  "start_pose": {"x": 0.0, "z": 0.0, "heading_deg": 0.0},
+  "travel_direction": "FORWARD",
+  "speed_limit_mps": 8.3,
+  "vehicle_size": {"length_m": 4.5, "width_m": 1.8},
+  "area_bounds": [[-6.0, -5.0], [6.0, -5.0], [6.0, 80.0], [-6.0, 80.0]],
+  "target_zone": [[-3.0, 60.0], [3.0, 60.0], [3.0, 70.0], [-3.0, 70.0]],
+  "target_heading_deg": null,
+  "permitted_signals": ["GREEN"],
+  "tolerances": {"stop_speed_mps": 0.3, "speed_over_mps": 0.5, "heading_deg": 10.0},
+  "sample_period_ms": 200,
+  "road_objects": [
+    {"object_id": "stop-line-1", "kind": "STOP_LINE", "geometry": {"line": [[-3.5, 30.0], [3.5, 30.0]], "direction": [0.0, 1.0]}, "initial_state": {}},
+    {"object_id": "signal-1", "kind": "TRAFFIC_SIGNAL", "geometry": {"position": [4.0, 30.0]},
+     "initial_state": {"program": [{"signal": "GREEN", "duration_ms": 8000}, {"signal": "YELLOW", "duration_ms": 2000}, {"signal": "RED", "duration_ms": 20000}, {"signal": "GREEN", "duration_ms": 60000}], "phase_index": 0, "phase_offset_ms": 0}},
+    {"object_id": "obstacle-1", "kind": "OBSTACLE", "geometry": {"polygon": [[3.5, 45.0], [5.5, 45.0], [5.5, 50.0], [3.5, 50.0]]}, "initial_state": {}}
+  ],
+  "change_note": null
+}

@@ -1,0 +1,49 @@
+{
+  "case": "stop-zone/left_area_and_returned",
+  "exercise_id": "stop-zone",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 8000,
+  "expected_violations": ["LEFT_AREA"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 2000,
+      "type": "BOUNDARY_CROSSED",
+      "context": {
+        "direction": "EXIT"
+      }
+    },
+    {
+      "event_no": 3,
+      "t_ms": 3000,
+      "type": "BOUNDARY_CROSSED",
+      "context": {
+        "direction": "ENTER"
+      }
+    },
+    {
+      "event_no": 4,
+      "t_ms": 8000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 43.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

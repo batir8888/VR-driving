@@ -1,0 +1,22 @@
+{
+  "exercise_id": "reverse-parking",
+  "scenario_version": 1,
+  "task_text": "Включите задний ход и припаркуйте автомобиль в обозначенном месте так, чтобы он остановился полностью внутри места и был ориентирован вдоль него. Не касайтесь границ места и соседних автомобилей.",
+  "start_pose": {"x": 0.0, "z": 3.0, "heading_deg": 0.0},
+  "travel_direction": "REVERSE",
+  "speed_limit_mps": 3.0,
+  "vehicle_size": {"length_m": 4.5, "width_m": 1.8},
+  "area_bounds": [[-5.0, -14.0], [5.0, -14.0], [5.0, 6.0], [-5.0, 6.0]],
+  "target_zone": [[-1.5, -10.5], [1.5, -10.5], [1.5, -4.5], [-1.5, -4.5]],
+  "target_heading_deg": 0.0,
+  "permitted_signals": null,
+  "tolerances": {"stop_speed_mps": 0.3, "speed_over_mps": 0.5, "heading_deg": 10.0},
+  "sample_period_ms": 200,
+  "road_objects": [
+    {"object_id": "border-left", "kind": "BORDER", "geometry": {"polygon": [[-1.6, -10.5], [-1.5, -10.5], [-1.5, -4.5], [-1.6, -4.5]]}, "initial_state": {}},
+    {"object_id": "border-right", "kind": "BORDER", "geometry": {"polygon": [[1.5, -10.5], [1.6, -10.5], [1.6, -4.5], [1.5, -4.5]]}, "initial_state": {}},
+    {"object_id": "car-left", "kind": "OBSTACLE", "geometry": {"polygon": [[-4.6, -10.5], [-1.7, -10.5], [-1.7, -4.5], [-4.6, -4.5]]}, "initial_state": {}},
+    {"object_id": "car-right", "kind": "OBSTACLE", "geometry": {"polygon": [[1.7, -10.5], [4.6, -10.5], [4.6, -4.5], [1.7, -4.5]]}, "initial_state": {}}
+  ],
+  "change_note": null
+}

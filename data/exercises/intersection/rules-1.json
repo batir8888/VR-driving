@@ -1,0 +1,3 @@
+{"exercise_id": "intersection", "rules_version": 1,
+ "enabled_rules": ["COLLISION", "LEFT_AREA", "STOP_LINE_PROHIBITED", "SPEED_LIMIT_EXCEEDED", "TARGET_ZONE_MISSED", "ATTEMPT_ABORTED"],
+ "change_note": null}

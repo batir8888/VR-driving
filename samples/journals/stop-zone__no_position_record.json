@@ -1,0 +1,19 @@
+{
+  "case": "stop-zone/no_position_record",
+  "exercise_id": "stop-zone",
+  "finish_reason": "COMPLETED",
+  "duration_ms": 5000,
+  "expected_violations": ["COLLISION", "TARGET_ZONE_MISSED"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 1000,
+      "type": "CONTACT_STARTED",
+      "context": {
+        "object_id": "cone-1",
+        "object_kind": "OBSTACLE",
+        "speed_mps": 1.0
+      }
+    }
+  ]
+}

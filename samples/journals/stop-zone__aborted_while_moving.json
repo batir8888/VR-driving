@@ -1,0 +1,33 @@
+{
+  "case": "stop-zone/aborted_while_moving",
+  "exercise_id": "stop-zone",
+  "finish_reason": "ABORTED",
+  "duration_ms": 4000,
+  "expected_violations": ["NOT_STOPPED", "TARGET_ZONE_MISSED", "ATTEMPT_ABORTED"],
+  "events": [
+    {
+      "event_no": 1,
+      "t_ms": 0,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 0.0,
+        "heading_deg": 0.0,
+        "speed_mps": 0.0,
+        "gear": "FORWARD"
+      }
+    },
+    {
+      "event_no": 2,
+      "t_ms": 4000,
+      "type": "POSITION_SAMPLE",
+      "context": {
+        "x": 0.0,
+        "z": 20.0,
+        "heading_deg": 0.0,
+        "speed_mps": 5.0,
+        "gear": "FORWARD"
+      }
+    }
+  ]
+}

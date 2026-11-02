@@ -1,0 +1,20 @@
+{
+  "exercise_id": "stop-zone",
+  "scenario_version": 1,
+  "task_text": "Двигаясь вперёд по прямой, полностью остановите автомобиль так, чтобы все его габариты оказались внутри целевой зоны. Избегайте контакта с конусами и выезда за границы участка.",
+  "start_pose": {"x": 0.0, "z": 0.0, "heading_deg": 0.0},
+  "travel_direction": "FORWARD",
+  "speed_limit_mps": 8.3,
+  "vehicle_size": {"length_m": 4.5, "width_m": 1.8},
+  "area_bounds": [[-4.0, -5.0], [4.0, -5.0], [4.0, 60.0], [-4.0, 60.0]],
+  "target_zone": [[-1.75, 40.0], [1.75, 40.0], [1.75, 46.0], [-1.75, 46.0]],
+  "target_heading_deg": null,
+  "permitted_signals": null,
+  "tolerances": {"stop_speed_mps": 0.3, "speed_over_mps": 0.5, "heading_deg": 10.0},
+  "sample_period_ms": 200,
+  "road_objects": [
+    {"object_id": "cone-1", "kind": "OBSTACLE", "geometry": {"polygon": [[2.4, 19.8], [2.8, 19.8], [2.8, 20.2], [2.4, 20.2]]}, "initial_state": {}},
+    {"object_id": "cone-2", "kind": "OBSTACLE", "geometry": {"polygon": [[2.4, 34.8], [2.8, 34.8], [2.8, 35.2], [2.4, 35.2]]}, "initial_state": {}}
+  ],
+  "change_note": null
+}
