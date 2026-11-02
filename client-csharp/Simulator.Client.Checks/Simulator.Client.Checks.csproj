@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Simulator.Client.Checks</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Simulator.Client\Simulator.Client.csproj" />
+    <Compile Include="..\Simulator.Client.Demo\ScenarioLoader.cs" Link="ScenarioLoader.cs" />
+  </ItemGroup>
+
+</Project>

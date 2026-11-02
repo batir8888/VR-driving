@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Исходные файлы хранятся в проекте Unity (unity-client/Assets/Scripts/Simulator) вместе с метаданными .meta;
+       эта библиотека собирает те же файлы вне редактора, чтобы проверять алгоритмы из командной строки.
+       Код не зависит от UnityEngine и сторонних пакетов. Unity принимает C# до 9, поэтому язык ограничен 9. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>Simulator.Client</RootNamespace>
+    <AssemblyName>Simulator.Client</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\unity-client\Assets\Scripts\Simulator\*.cs" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

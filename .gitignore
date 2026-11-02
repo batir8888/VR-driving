@@ -13,3 +13,10 @@ tmp/
 [Bb]uilds/
 [Ll]ogs/
 UserSettings/
+# сгенерированные Unity файлы решения и проектов
+unity-client/*.csproj
+unity-client/*.sln
+unity-client/Library/
+unity-client/Logs/
+unity-client/UserSettings/
+unity-client/obj/
