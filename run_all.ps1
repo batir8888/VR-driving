@@ -14,9 +14,18 @@ $server = "http://127.0.0.1:$port"
 
 function Step($title) { Write-Host ""; Write-Host "##### $title" }
 
+$allLog = Join-Path $logs '_all.txt'
+if (Test-Path $allLog) { Remove-Item $allLog }
+
 function Run-Logged($log, [scriptblock]$cmd) {
-    & $cmd 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath (Join-Path $logs $log) | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "Шаг завершился с кодом $LASTEXITCODE (см. out\logs\$log)" }
+    $lines = @(& $cmd 2>&1 | ForEach-Object { "$_" })
+    $code = $LASTEXITCODE
+    # журнал шага и общий журнал — в UTF-8 (Tee-Object в PowerShell 5.1 пишет UTF-16)
+    $lines | Out-File -FilePath (Join-Path $logs $log) -Encoding utf8
+    ('##### ' + $log) | Out-File -FilePath $allLog -Encoding utf8 -Append
+    $lines | Out-File -FilePath $allLog -Encoding utf8 -Append
+    $lines | Out-Host
+    if ($code -ne 0) { throw "Шаг завершился с кодом $code (см. out\logs\$log)" }
 }
 
 function Start-Server {
