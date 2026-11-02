@@ -6,8 +6,8 @@ namespace Simulator.Client
     /// <summary>
     /// A2. Регистрация событий и формирование групп (модуль регистрации клиента).
     /// Схема: UP-004/UP-004_A2_схема.png, шаги — таблица 4.5. Клиент фиксирует наблюдаемые факты;
-    /// нарушения определяет сервер. Отправку выполняет A3, поэтому обработка кадра не ждёт сети.
-    /// Положение автомобиля для стоп-линии и границы участка — центр автомобиля.
+    /// нарушения определяет сервер. Отправку выполняет A3 в фоновом потоке, поэтому обработка кадра не ждёт сети.
+    /// Для стоп-линии берётся передний край автомобиля (центр плюс половина длины по курсу), для границы участка — центр.
     /// </summary>
     public static class Registrar
     {
@@ -18,45 +18,28 @@ namespace Simulator.Client
             {
                 st.BatchOpenedAtT = f.TMs;
             }
-            // блок 2: попытка завершается?
-            if (f.FinishReason != null)
+            // блок 2: кадр не завершающий и t_ms − last_sample_t ≥ sample_period_ms?
+            // Завершающий кадр записывает положение в блоке 14, но контакты, стоп-линия и граница проверяются на нём как обычно.
+            bool finishing = f.FinishReason != null;
+            if (!finishing && f.TMs - st.LastSampleT >= sc.SamplePeriodMs)
             {
-                // блок 3: последняя POSITION_SAMPLE, закрыть группу, поставить в очередь сообщение о завершении
-                AddSample(st, f);
-                CloseBatch(st, f.TMs);
-                if (!st.FinishQueued)
-                {
-                    st.Outbox.Add(new Message
-                    {
-                        Kind = "FINISH",
-                        DurationMs = f.TMs,
-                        FinishReason = f.FinishReason,
-                        DeclaredBatchCount = st.NextBatchNumber - 1
-                    });
-                    st.FinishQueued = true;
-                }
-                return;
+                AddSample(st, f);                                           // блок 3
             }
-            // блок 4: t_ms − last_sample_t ≥ sample_period_ms?
-            if (f.TMs - st.LastSampleT >= sc.SamplePeriodMs)
-            {
-                AddSample(st, f);                                           // блок 5
-            }
-            // блоки 6–8: для каждого контакта из текущих
+            // блоки 4–6: для каждого контакта из текущих
             var current = new HashSet<string>();
             foreach (Contact c in f.Contacts)
             {
                 current.Add(c.ObjectId);
-                if (!st.PrevContacts.Contains(c.ObjectId))                  // блок 7: объекта нет в prev_contacts?
+                if (!st.PrevContacts.Contains(c.ObjectId))                  // блок 5: объекта нет в prev_contacts?
                 {
-                    Add(st, new EventRecord                                 // блок 8: CONTACT_STARTED
+                    Add(st, new EventRecord                                 // блок 6: CONTACT_STARTED
                     {
                         TMs = f.TMs, Type = "CONTACT_STARTED", ObjectId = c.ObjectId, ObjectKind = c.ObjectKind, SpeedMps = f.SpeedMps
                     });
                 }
             }
-            st.PrevContacts = current;                                      // блок 9
-            // блоки 10–12: для каждой стоп-линии из road_objects
+            st.PrevContacts = current;                                      // блок 7
+            // блоки 8–10: для каждой стоп-линии из road_objects
             foreach (RoadObject o in sc.RoadObjects)
             {
                 if (o.Kind != "STOP_LINE")
@@ -64,16 +47,19 @@ namespace Simulator.Client
                     continue;
                 }
                 bool withinSpan;
-                double side = SideOfLine(o, f.X, f.Z, out withinSpan);
+                double heading = f.HeadingDeg * Math.PI / 180.0;
+                double frontX = f.X + Math.Sin(heading) * sc.LengthM / 2.0;
+                double frontZ = f.Z + Math.Cos(heading) * sc.LengthM / 2.0;
+                double side = SideOfLine(o, frontX, frontZ, out withinSpan);
                 double prev;
                 bool had = st.PrevSide.TryGetValue(o.ObjectId, out prev);
                 st.PrevSide[o.ObjectId] = side;
-                if (had && prev < 0 && side >= 0 && withinSpan)             // блок 11: перешёл через линию по ходу?
+                if (had && prev < 0 && side >= 0 && withinSpan)             // блок 9: передний край перешёл линию по ходу?
                 {
-                    Add(st, new EventRecord { TMs = f.TMs, Type = "STOP_LINE_CROSSED", Signal = f.Signal });   // блок 12
+                    Add(st, new EventRecord { TMs = f.TMs, Type = "STOP_LINE_CROSSED", Signal = f.Signal });   // блок 10
                 }
             }
-            // блоки 13–14: признак «внутри area_bounds» изменился?
+            // блоки 11–12: признак «внутри area_bounds» изменился?
             bool inside = Inside(sc.AreaBounds, f.X, f.Z);
             if (st.PrevInsideInit && inside != st.PrevInside)
             {
@@ -81,6 +67,28 @@ namespace Simulator.Client
             }
             st.PrevInside = inside;
             st.PrevInsideInit = true;
+            // блок 13: попытка завершается?
+            if (finishing)
+            {
+                // блок 14: последняя POSITION_SAMPLE, закрыть группу, поставить в очередь сообщение о завершении
+                AddSample(st, f);
+                CloseBatch(st, f.TMs);
+                if (!st.FinishQueued)
+                {
+                    lock (st.Outbox)
+                    {
+                        st.Outbox.Add(new Message
+                        {
+                            Kind = "FINISH",
+                            DurationMs = f.TMs,
+                            FinishReason = f.FinishReason,
+                            DeclaredBatchCount = st.NextBatchNumber - 1
+                        });
+                    }
+                    st.FinishQueued = true;
+                }
+                return;
+            }
             // блок 15: в буфере ≥ batch_max_events или прошло ≥ batch_max_interval_ms?
             if (st.Buffer.Count >= st.BatchMaxEvents || f.TMs - st.BatchOpenedAtT >= st.BatchMaxIntervalMs)
             {
@@ -88,7 +96,7 @@ namespace Simulator.Client
             }
         }
 
-        /// <summary>Блок 5 (и блок 3): добавить POSITION_SAMPLE; last_sample_t := t_ms.</summary>
+        /// <summary>Блок 3 (и блок 14): добавить POSITION_SAMPLE; last_sample_t := t_ms.</summary>
         private static void AddSample(RegState st, Frame f)
         {
             Add(st, new EventRecord
@@ -112,18 +120,21 @@ namespace Simulator.Client
             {
                 return;     // пустая группа не отправляется (UP-003, связь EventBatch → Event: 1..*)
             }
-            st.Outbox.Add(new Message
+            lock (st.Outbox)
             {
-                Kind = "BATCH",
-                BatchNumber = st.NextBatchNumber++,
-                EventCount = st.Buffer.Count,
-                Events = new List<EventRecord>(st.Buffer)
-            });
+                st.Outbox.Add(new Message
+                {
+                    Kind = "BATCH",
+                    BatchNumber = st.NextBatchNumber++,
+                    EventCount = st.Buffer.Count,
+                    Events = new List<EventRecord>(st.Buffer)
+                });
+            }
             st.Buffer.Clear();
             st.BatchOpenedAtT = tMs;
         }
 
-        /// <summary>Расстояние от центра автомобиля до линии вдоль направления пересечения; отрицательное — до линии.</summary>
+        /// <summary>Расстояние от заданной точки автомобиля до линии вдоль направления пересечения; отрицательное — до линии.</summary>
         private static double SideOfLine(RoadObject o, double x, double z, out bool withinSpan)
         {
             double ax = o.Line[0][0], az = o.Line[0][1], bx = o.Line[1][0], bz = o.Line[1][1];

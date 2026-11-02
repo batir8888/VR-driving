@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using Simulator.Client.Demo;
 
 namespace Simulator.Client.Checks
@@ -88,26 +89,35 @@ namespace Simulator.Client.Checks
                 new[] { new Contact("cone-1", "OBSTACLE"), new Contact("cone-2", "OBSTACLE") }));
             Check("A2 два разных объекта в одном кадре: два события", Count(AllEvents(st), "CONTACT_STARTED") == 2, "");
 
-            // стоп-линия: сигнал в момент пересечения
+            // стоп-линия: сигнал в момент пересечения; числа — положение переднего края, центр позади на половину длины
+            double half = inter.LengthM / 2.0;
             foreach (string signal in new[] { "GREEN", "RED" })
             {
                 st = NewState(inter);
-                Registrar.ProcessFrame(st, inter, Fr(0, 0, 29.0, 0, 5, "FORWARD", signal, null, new Contact[0]));
-                Registrar.ProcessFrame(st, inter, Fr(100, 0, 29.5, 0, 5, "FORWARD", signal, null, new Contact[0]));
-                Registrar.ProcessFrame(st, inter, Fr(200, 0, 30.2, 0, 5, "FORWARD", signal, null, new Contact[0]));
-                Registrar.ProcessFrame(st, inter, Fr(300, 0, 31.0, 0, 5, "FORWARD", signal, null, new Contact[0]));
+                Registrar.ProcessFrame(st, inter, Fr(0, 0, 29.0 - half, 0, 5, "FORWARD", signal, null, new Contact[0]));
+                Registrar.ProcessFrame(st, inter, Fr(100, 0, 29.5 - half, 0, 5, "FORWARD", signal, null, new Contact[0]));
+                Registrar.ProcessFrame(st, inter, Fr(200, 0, 30.2 - half, 0, 5, "FORWARD", signal, null, new Contact[0]));
+                Registrar.ProcessFrame(st, inter, Fr(300, 0, 31.0 - half, 0, 5, "FORWARD", signal, null, new Contact[0]));
                 List<EventRecord> crossings = AllEvents(st).Where(e => e.Type == "STOP_LINE_CROSSED").ToList();
                 Check("A2 пересечение стоп-линии при сигнале " + signal + ": одно событие, сигнал записан, время 200 мс",
                     crossings.Count == 1 && crossings[0].Signal == signal && crossings[0].TMs == 200, "событий " + crossings.Count);
             }
             st = NewState(inter);
-            Registrar.ProcessFrame(st, inter, Fr(0, 0, 31.0, 0, 3, "REVERSE", "GREEN", null, new Contact[0]));
-            Registrar.ProcessFrame(st, inter, Fr(100, 0, 29.0, 0, 3, "REVERSE", "GREEN", null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(0, 0, 29.0 - half, 0, 5, "FORWARD", "RED", null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(100, 0, 29.9 - half, 0, 5, "FORWARD", "RED", null, new Contact[0]));
+            Check("A2 передний край ещё до стоп-линии: событий нет",
+                Count(AllEvents(st), "STOP_LINE_CROSSED") == 0, "");
+            Registrar.ProcessFrame(st, inter, Fr(200, 0, 30.1 - half, 0, 5, "FORWARD", "RED", null, new Contact[0]));
+            Check("A2 передний край за линией на 0,1 м при красном, центр ещё до линии: событие зарегистрировано",
+                Count(AllEvents(st), "STOP_LINE_CROSSED") == 1, "");
+            st = NewState(inter);
+            Registrar.ProcessFrame(st, inter, Fr(0, 0, 31.0 - half, 0, 3, "REVERSE", "GREEN", null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(100, 0, 29.0 - half, 0, 3, "REVERSE", "GREEN", null, new Contact[0]));
             Check("A2 движение назад через стоп-линию (против хода) не регистрируется",
                 Count(AllEvents(st), "STOP_LINE_CROSSED") == 0, "");
             st = NewState(inter);
-            Registrar.ProcessFrame(st, inter, Fr(0, 5.0, 29.0, 0, 5, "FORWARD", "GREEN", null, new Contact[0]));
-            Registrar.ProcessFrame(st, inter, Fr(100, 5.0, 31.0, 0, 5, "FORWARD", "GREEN", null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(0, 5.0, 29.0 - half, 0, 5, "FORWARD", "GREEN", null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(100, 5.0, 31.0 - half, 0, 5, "FORWARD", "GREEN", null, new Contact[0]));
             Check("A2 переход за линию вне её протяжённости (x = 5 при линии −3,5…3,5) не регистрируется",
                 Count(AllEvents(st), "STOP_LINE_CROSSED") == 0, "");
 
@@ -157,6 +167,26 @@ namespace Simulator.Client.Checks
             EventRecord lastEvent = all.Last();
             Check("A2 последнее событие журнала — POSITION_SAMPLE в момент завершения (3000 мс, скорость 0)",
                 lastEvent.Type == "POSITION_SAMPLE" && lastEvent.TMs == 3000 && lastEvent.SpeedMps == 0, "");
+            // завершающий кадр: события на нём не теряются
+            st = NewState(stop);
+            Registrar.ProcessFrame(st, stop, Fr(0, 0, 10, 0, 2, "FORWARD", null, null, new Contact[0]));
+            Registrar.ProcessFrame(st, stop, Fr(100, 0, 10.2, 0, 2, "FORWARD", null, "COMPLETED", new[] { new Contact("cone-1", "OBSTACLE") }));
+            events = AllEvents(st);
+            Check("A2 контакт на завершающем кадре зарегистрирован, последним событием остаётся POSITION_SAMPLE",
+                Count(events, "CONTACT_STARTED") == 1 && events.Last().Type == "POSITION_SAMPLE" && events.Last().TMs == 100, "");
+            st = NewState(inter);
+            Registrar.ProcessFrame(st, inter, Fr(0, 0, 29.0 - half, 0, 5, "FORWARD", "RED", null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(100, 0, 30.2 - half, 0, 5, "FORWARD", "RED", "ABORTED", new Contact[0]));
+            Check("A2 стоп-линия пересечена на завершающем кадре: событие с сигналом записано",
+                AllEvents(st).Count(e => e.Type == "STOP_LINE_CROSSED" && e.Signal == "RED") == 1, "");
+            st = NewState(inter);
+            Registrar.ProcessFrame(st, inter, Fr(0, 5.5, 10, 0, 2, "FORWARD", null, null, new Contact[0]));
+            Registrar.ProcessFrame(st, inter, Fr(100, 6.5, 10, 0, 2, "FORWARD", null, "COMPLETED", new Contact[0]));
+            Check("A2 выезд за границу на завершающем кадре: событие EXIT записано",
+                AllEvents(st).Count(e => e.Type == "BOUNDARY_CROSSED" && e.Direction == "EXIT") == 1, "");
+            Check("A2 завершающий кадр записывает положение один раз, FINISH последний в очереди",
+                AllEvents(st).Count(e => e.Type == "POSITION_SAMPLE" && e.TMs == 100) == 1 && st.Outbox.Last().Kind == "FINISH", "");
+
             // закрытие по числу событий: в каждом кадре ровно одно событие (запись положения), порог 3
             st = NewState(stop);
             st.BatchMaxEvents = 3; st.BatchMaxIntervalMs = 1000000;
@@ -206,7 +236,7 @@ namespace Simulator.Client.Checks
 
             // успех
             var q = Queue(); var d = new DeliveryState(); var script = new Script();
-            PumpResult r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { }, 0);
+            PumpResult r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { });
             Check("A3 все ответы 200: очередь пуста, завершение доставлено, результат Done, 4 запроса, повторов нет",
                 r == PumpResult.Done && q.Count == 0 && d.FinishDelivered && d.Requests == 4 && d.Retries == 0, r.ToString());
             Check("A3 порядок отправки совпадает с порядком очереди (группы 1, 2, 3, затем FINISH)",
@@ -216,7 +246,7 @@ namespace Simulator.Client.Checks
             // временные ошибки: нет ответа, 503; рост паузы до предела
             q = Queue(); d = new DeliveryState(); script = new Script(-1, -1, -1, 503, -1, -1);
             var waits = new List<long>();
-            r = Delivery.Pump(q, d, "a-0001", script.Send, waits.Add, 0);
+            r = Delivery.Pump(q, d, "a-0001", script.Send, waits.Add);
             Check("A3 6 неудач подряд (нет ответа, 503): паузы 1000, 2000, 4000, 8000, 8000, 8000 мс — рост ограничен пределом",
                 waits.SequenceEqual(new long[] { 1000, 2000, 4000, 8000, 8000, 8000 }), string.Join(",", waits));
             Check("A3 после успеха пауза возвращается к начальной (delay_0 = 1000 мс)", d.DelayMs == 1000, "");
@@ -228,30 +258,35 @@ namespace Simulator.Client.Checks
 
             // 4xx
             q = Queue(); d = new DeliveryState(); script = new Script(200, 400);
-            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { }, 0);
+            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { });
             Check("A3 ответ 400 на группу 2: сообщение перенесено в список отклонённых, очередь не заблокирована",
                 d.Rejected.Count == 1 && d.Rejected[0].Message.BatchNumber == 2 && d.Rejected[0].Code == 400 && r == PumpResult.Done && q.Count == 0, "");
             Check("A3 отклонённое сообщение не отправлялось повторно (всего 4 запроса)", d.Requests == 4 && d.Retries == 0, "запросов " + d.Requests);
 
             // 404
             q = Queue(); d = new DeliveryState(); script = new Script(404);
-            Delivery.Pump(q, d, "a-9999", script.Send, ms => { }, 0);
+            Delivery.Pump(q, d, "a-9999", script.Send, ms => { });
             Check("A3 ответ 404 (неизвестная попытка): повтор не выполняется, сообщение в списке отклонённых", d.Rejected.Count == 1 && d.Retries == 0, "");
 
             // связь недоступна: очередь сохраняется
             q = Queue(); d = new DeliveryState(); script = new Script(); script.Default = -1;
-            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { }, 2);
-            Check("A3 сервер недоступен: Suspended, очередь сохранена целиком (4 сообщения), первым остаётся группа 1",
+            int pauses = 0;
+            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { if (++pauses == 2) { d.Stop.Set(); } });
+            Check("A3 сервер недоступен, запрошена остановка: Suspended, очередь сохранена целиком (4 сообщения), первым остаётся группа 1",
                 r == PumpResult.Suspended && q.Count == 4 && q[0].BatchNumber == 1, r + ", в очереди " + q.Count);
             script.Default = 200;
-            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { }, 2);
+            d.Stop.Reset();
+            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { });
             Check("A3 после восстановления связи очередь передаётся с группы 1 и завершается Done",
                 r == PumpResult.Done && q.Count == 0 && d.FinishDelivered, r.ToString());
 
             // ожидание сообщений
             q = new List<Message>(); d = new DeliveryState();
-            r = Delivery.Pump(q, d, "a-0001", new Script().Send, ms => { }, 0);
+            r = Delivery.Pump(q, d, "a-0001", new Script().Send, ms => { });
             Check("A3 очередь пуста, завершение не доставлено: ожидание новых сообщений (WaitForMessages)", r == PumpResult.WaitForMessages, r.ToString());
+
+            // фоновый поток: канал занят, кадры идут
+            CheckWorker();
 
             // формат JSON
             Message b = Batch(7, 2);
@@ -269,6 +304,47 @@ namespace Simulator.Client.Checks
                     doc.RootElement.GetProperty("declared_batch_count").GetInt32() == 3
                     && doc.RootElement.GetProperty("finish_reason").GetString() == "COMPLETED", "");
             }
+        }
+
+        /// <summary>Канал не отвечает, пока не обработаны все кадры: если бы кадр ждал сеть, цикл кадров не завершился бы до тайм-аута.</summary>
+        private static void CheckWorker()
+        {
+            Scenario sc = new Scenario { SamplePeriodMs = 100, LengthM = 4.5, AreaBounds = new[] { new[] { -9.0, -9.0 }, new[] { 9.0, -9.0 }, new[] { 9.0, 999.0 }, new[] { -9.0, 999.0 } } };
+            var st = new RegState { BatchMaxEvents = 2 };
+            var d = new DeliveryState();
+            var gate = new ManualResetEventSlim(false);
+            var sent = new List<string>();
+            bool timedOut = false;
+            Channel slow = (path, body) =>
+            {
+                if (!gate.Wait(10000)) { timedOut = true; }
+                sent.Add(body);
+                return new ChannelResponse(200, "{}");
+            };
+            Thread worker = Delivery.StartWorker(st.Outbox, d, "a-0001", slow, ms => { });
+            for (int t = 0; t <= 2000; t += 100)
+            {
+                Registrar.ProcessFrame(st, sc, Fr(t, 0, t / 100.0, 0, 1, "FORWARD", null, t == 2000 ? "COMPLETED" : null, new Contact[0]));
+            }
+            Check("A3 канал не отвечает: все 21 кадр обработаны, ни один запрос ещё не завершён (кадр не ждёт сеть)", sent.Count == 0, "завершено запросов " + sent.Count);
+            gate.Set();
+            bool finished = worker.Join(10000);
+            Check("A3 фоновый поток: после ответа канала очередь доставлена целиком, поток завершился",
+                finished && !timedOut && st.Outbox.Count == 0 && d.FinishDelivered, "в очереди " + st.Outbox.Count);
+            var numbers = sent.Where(x => x.Contains("\"BATCH\"")).Select(x =>
+            {
+                using (JsonDocument doc = JsonDocument.Parse(x)) { return doc.RootElement.GetProperty("batch_number").GetInt32(); }
+            }).ToList();
+            Check("A3 фоновый поток: группы отправлены по порядку, FINISH последним",
+                numbers.Count > 1 && numbers.SequenceEqual(Enumerable.Range(1, numbers.Count)) && sent.Last().Contains("FINISH"), string.Join(",", numbers));
+
+            // остановка прерывает реальную паузу, очередь сохраняется
+            var q2 = new List<Message> { Batch(1, 1) };
+            var d2 = new DeliveryState();
+            Thread w2 = Delivery.StartWorker(q2, d2, "a-0001", (p, x) => null, null);
+            while (d2.Failures == 0) { Thread.Sleep(1); }
+            d2.Stop.Set();
+            Check("A3 остановка во время паузы: поток завершается сразу, сообщение остаётся в очереди", w2.Join(500) && q2.Count == 1, "");
         }
 
         // ================================================================= вспомогательное

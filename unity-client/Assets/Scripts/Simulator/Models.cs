@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Simulator.Client
 {
@@ -121,7 +122,7 @@ namespace Simulator.Client
         public bool FinishQueued;
         public int BatchMaxEvents = 20;
         public long BatchMaxIntervalMs = 2000;
-        /// <summary>Очередь отправки: её заполняет A2, а опустошает A3.</summary>
+        /// <summary>Очередь отправки: её заполняет A2 в потоке кадров, а опустошает A3 в фоновом потоке; обращения — под lock (Outbox).</summary>
         public List<Message> Outbox = new List<Message>();
     }
 
@@ -153,12 +154,14 @@ namespace Simulator.Client
         public int Requests;
         public int Retries;
         public int Failures;                            // отправки без подтверждения: нет ответа, 5xx
+        /// <summary>Просьба остановить доставку (выход из приложения); прерывает паузу фонового потока. Очередь сохраняется.</summary>
+        public readonly ManualResetEventSlim Stop = new ManualResetEventSlim(false);
     }
 
     public enum PumpResult
     {
         Done,               // очередь пуста, завершение доставлено (блок 2, «да»)
         WaitForMessages,    // очередь пуста, ждём новые сообщения (блок 3)
-        Suspended           // превышено число подряд неудачных отправок; очередь сохранена
+        Suspended           // доставка остановлена по просьбе (DeliveryState.Stop); очередь сохранена
     }
 }

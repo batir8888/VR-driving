@@ -42,7 +42,7 @@ public final class Evaluate {
 
     // ------------------------------------------------------------------ A4 → A5 → A6
 
-    /** Вызывается компонентом приёма (A4, блок 10) после завершения попытки. */
+    /** Вызывается компонентом приёма (A4, блок 12) после завершения попытки. */
     public static Map<String, Object> evaluateAttempt(Path dataDir, Path store, String attemptId) {
         Path dir = Storage.attemptDir(store, attemptId);
         Map<String, Object> attempt = Json.map(Storage.read(dir.resolve("attempt.json")));
@@ -176,7 +176,7 @@ public final class Evaluate {
         }
     }
 
-    /** Каталог правил: тип события → коды правил, источником которых он служит (таблица 4.2). */
+    /** Каталог правил: тип события → коды правил, источником которых он служит (таблица 3.5 отчёта). */
     static String[] rulesFor(String type) {
         switch (type) {
             case "CONTACT_STARTED": return new String[] {"COLLISION", "BORDER_CONTACT"};

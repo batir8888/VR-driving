@@ -327,6 +327,42 @@ public final class ServerChecks {
         check("A4 повторный FINISH: DUPLICATE, результат не изменился",
             rf2.get("status").equals("DUPLICATE") && resBefore.equals(fileText(store, id, "result.json")), "");
 
+        // сбой оценки после записи FINISHED: повторный FINISH выполняет оценку заново
+        try {
+            Files.delete(Storage.attemptDir(store, id).resolve("result.json"));
+        } catch (java.io.IOException ex) {
+            throw new RuntimeException(ex);
+        }
+        Map<String, Object> rf3 = Receive.receive(data, store, id, fin);
+        check("A4 FINISHED без результата (сбой оценки): повторный FINISH оценивает заново, результат тот же",
+            rf3.get("status").equals("ACCEPTED") && resBefore.equals(fileText(store, id, "result.json")), String.valueOf(rf3.get("status")));
+
+        // недопустимые значения FINISH и номеров: 400, попытка не переходит в FINISHED
+        Path storeBad = fresh("a4bad");
+        String idBad = create(data, storeBad, "L-001", "stop-zone");
+        Map<String, Object> negDeclared = finishMsg(-5, 1000, "COMPLETED");
+        Map<String, Object> hugeDeclared = finishMsg(Receive.MAX_BATCH_NUMBER + 1, 1000, "COMPLETED");
+        Map<String, Object> negDuration = finishMsg(0, -77, "COMPLETED");
+        Map<String, Object> badReason = finishMsg(0, 1000, "BANANA");
+        check("A4 FINISH с declared_batch_count = −5 или выше предела: 400",
+            Json.integer(Receive.receive(data, storeBad, idBad, negDeclared).get("code")) == 400L
+                && Json.integer(Receive.receive(data, storeBad, idBad, hugeDeclared).get("code")) == 400L, "");
+        check("A4 FINISH с отрицательной длительностью или неизвестной причиной: 400",
+            Json.integer(Receive.receive(data, storeBad, idBad, negDuration).get("code")) == 400L
+                && Json.integer(Receive.receive(data, storeBad, idBad, badReason).get("code")) == 400L, "");
+        check("A4 после отклонённых FINISH попытка не завершена, результата нет",
+            !"FINISHED".equals(attemptField(storeBad, idBad, "state"))
+                && !Files.exists(Storage.attemptDir(storeBad, idBad).resolve("result.json")), "");
+        List<Map<String, Object>> bigNo = new ArrayList<>();
+        pos(bigNo, 0, 0, 0, 0, 0, "FORWARD");
+        bigNo.get(0).put("event_no", 2147483647L);
+        check("A4 event_no выше предела: 400, запись не создана",
+            Json.integer(Receive.receive(data, storeBad, idBad, batchMsg(1, bigNo)).get("code")) == 400L
+                && !Files.exists(Storage.attemptDir(storeBad, idBad).resolve("log.json")), "");
+        Map<String, Object> okFin = Receive.receive(data, storeBad, idBad, finishMsg(0, 1000, "COMPLETED"));
+        check("A4 после отклонений допустимый FINISH принимается и даёт результат",
+            okFin.get("status").equals("ACCEPTED") && okFin.get("result") != null, "");
+
         // поздняя группа после FINISH: пересчёт (результат заменяется)
         Path store2 = fresh("a4late");
         String id2 = create(data, store2, "L-001", "stop-zone");

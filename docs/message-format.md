@@ -51,7 +51,9 @@
 {"kind": "FINISH", "duration_ms": 8500, "finish_reason": "COMPLETED", "declared_batch_count": 5}
 ```
 
-`finish_reason` — `COMPLETED` или `ABORTED`; `declared_batch_count` — номер последней отправленной группы.
+`finish_reason` — `COMPLETED` или `ABORTED`; `duration_ms` ≥ 0; `declared_batch_count` — номер последней отправленной группы, от 0 до 100 000. Сообщение с другими значениями получает ответ 400, и попытка не переходит в завершённое состояние. Повторный `FINISH` возвращает `DUPLICATE`, а если результата ещё нет (сбой оценки), выполняет оценку снова.
+
+Ограничения группы: `batch_number` от 1 до 100 000, `event_no` от 1 до 1 000 000. `STOP_LINE_CROSSED` регистрируется, когда линию пересекает передний край автомобиля.
 
 ### Ответы
 

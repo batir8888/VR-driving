@@ -19,6 +19,10 @@ public final class Receive {
     static final Set<String> EVENT_TYPES = new HashSet<>(Arrays.asList(
         "POSITION_SAMPLE", "CONTACT_STARTED", "STOP_LINE_CROSSED", "BOUNDARY_CROSSED"));
 
+    /** Верхние границы номеров: A5 раскладывает группы и события в массивы по номеру, поэтому номер ограничивает память. */
+    public static final long MAX_BATCH_NUMBER = 100_000L;
+    public static final long MAX_EVENT_NO = 1_000_000L;
+
     /**
      * @return code (200/400/404), status (ACCEPTED/DUPLICATE) и message; при попытке оценки — result
      */
@@ -38,24 +42,29 @@ public final class Receive {
             if (!"FINISH".equals(kind)) {
                 return reply(400, "BAD_FORMAT", "неизвестный вид сообщения");
             }
-            // блок 4: попытка уже FINISHED?
+            // блок 4: попытка уже FINISHED?  блок 5: результат уже записан?
             if ("FINISHED".equals(attempt.get("state"))) {
-                return reply(200, "DUPLICATE", "повтор: запись не создана");
+                // результат есть — обычный повтор; нет (сбой оценки при первом FINISH) — оценить снова
+                if (Files.isRegularFile(dir.resolve("result.json"))) {
+                    return reply(200, "DUPLICATE", "повтор: запись не создана");
+                }
+                return evaluateAndReply(dataDir, store, attemptId);   // блок 12
             }
-            // блок 6: записать state = FINISHED, duration_ms, finish_reason, declared_batch_count
-            try {
-                attempt.put("duration_ms", Json.integer(msg.get("duration_ms")));
-                attempt.put("finish_reason", Json.str(msg.get("finish_reason")));
-                attempt.put("declared_batch_count", Json.integer(msg.get("declared_batch_count")));
-            } catch (IllegalArgumentException ex) {
-                return reply(400, "BAD_FORMAT", "неверный формат сообщения о завершении");
+            // блок 7: формат верен?
+            String finishProblem = validateFinish(msg);
+            if (finishProblem != null) {
+                return reply(400, "BAD_FORMAT", finishProblem);
             }
+            // блок 9: записать state = FINISHED, duration_ms, finish_reason, declared_batch_count
+            attempt.put("duration_ms", Json.integer(msg.get("duration_ms")));
+            attempt.put("finish_reason", Json.str(msg.get("finish_reason")));
+            attempt.put("declared_batch_count", Json.integer(msg.get("declared_batch_count")));
             attempt.put("state", "FINISHED");
             Storage.writeAtomic(attemptFile, attempt);
-            return evaluateAndReply(dataDir, store, attemptId);   // блок 10
+            return evaluateAndReply(dataDir, store, attemptId);   // блок 12
         }
 
-        // блок 5: формат верен?
+        // блок 6: формат верен?
         String problem = validateBatch(msg);
         if (problem != null) {
             return reply(400, "BAD_FORMAT", problem);
@@ -67,13 +76,13 @@ public final class Receive {
             ? Json.map(Storage.read(logFile))
             : Json.obj("attempt_id", attemptId, "batches", new ArrayList<Object>(), "events", new ArrayList<Object>());
 
-        // блок 7: группа с таким batch_number уже есть в журнале?
+        // блок 8: группа с таким batch_number уже есть в журнале?
         for (Object b : Json.list(log.get("batches"))) {
             if (Json.integer(Json.map(b).get("batch_number")) == number) {
                 return reply(200, "DUPLICATE", "повтор: запись не создана");
             }
         }
-        // блок 8: дописать группу и её события в журнал (атомарно)
+        // блок 10: дописать группу и её события в журнал (атомарно)
         Json.list(log.get("batches")).add(Json.obj("batch_number", number, "event_count", (long) events.size()));
         for (Object o : events) {
             Map<String, Object> e = Json.map(o);
@@ -86,14 +95,14 @@ public final class Receive {
         }
         Storage.writeAtomic(logFile, log);
 
-        // блок 9: state = FINISHED?
+        // блок 11: state = FINISHED?
         if ("FINISHED".equals(attempt.get("state"))) {
-            return evaluateAndReply(dataDir, store, attemptId);   // блок 10: повторная оценка
+            return evaluateAndReply(dataDir, store, attemptId);   // блок 12: повторная оценка
         }
         return reply(200, "ACCEPTED", "принято");
     }
 
-    /** Блок 10: подпрограмма «Оценить попытку» — A5 и A6. */
+    /** Блок 12: подпрограмма «Оценить попытку» — A5 и A6. */
     private static Map<String, Object> evaluateAndReply(Path dataDir, Path store, String attemptId) {
         Map<String, Object> result = Evaluate.evaluateAttempt(dataDir, store, attemptId);
         Map<String, Object> r = reply(200, "ACCEPTED", "принято");
@@ -105,11 +114,28 @@ public final class Receive {
         return Json.obj("code", code, "status", status, "message", message);
     }
 
-    /** Блок 5: batch_number ≥ 1, event_count = числу событий, типы и контекст допустимы; один проход по списку. */
+    /** Блок 7: duration_ms ≥ 0, finish_reason — COMPLETED или ABORTED, 0 ≤ declared_batch_count ≤ MAX_BATCH_NUMBER. */
+    static String validateFinish(Map<String, Object> msg) {
+        try {
+            if (Json.integer(msg.get("duration_ms")) < 0) {
+                return "duration_ms не может быть отрицательным";
+            }
+            long declared = Json.integer(msg.get("declared_batch_count"));
+            if (declared < 0 || declared > MAX_BATCH_NUMBER) {
+                return "declared_batch_count вне допустимого диапазона";
+            }
+            return oneOf(msg.get("finish_reason"), "finish_reason", "COMPLETED", "ABORTED");
+        } catch (IllegalArgumentException ex) {
+            return "неверный формат сообщения о завершении: " + ex.getMessage();
+        }
+    }
+
+    /** Блок 6: 1 ≤ batch_number ≤ MAX_BATCH_NUMBER, event_count = числу событий, типы и контекст допустимы; один проход по списку. */
     static String validateBatch(Map<String, Object> msg) {
         try {
-            if (Json.integer(msg.get("batch_number")) < 1) {
-                return "batch_number должен быть не меньше 1";
+            long number = Json.integer(msg.get("batch_number"));
+            if (number < 1 || number > MAX_BATCH_NUMBER) {
+                return "batch_number вне допустимого диапазона";
             }
             List<Object> events = Json.list(msg.get("events"));
             if (events.isEmpty() || Json.integer(msg.get("event_count")) != events.size()) {
@@ -117,7 +143,8 @@ public final class Receive {
             }
             for (Object o : events) {
                 Map<String, Object> e = Json.map(o);
-                if (Json.integer(e.get("event_no")) < 1 || Json.integer(e.get("t_ms")) < 0) {
+                long no = Json.integer(e.get("event_no"));
+                if (no < 1 || no > MAX_EVENT_NO || Json.integer(e.get("t_ms")) < 0) {
                     return "event_no и t_ms: недопустимые значения";
                 }
                 String type = Json.str(e.get("type"));

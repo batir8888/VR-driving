@@ -152,13 +152,13 @@ namespace Simulator.Client.Demo
             return bad == 0 ? 0 : 1;
         }
 
-        /// <summary>A2 на каждом кадре; A3 после каждого кадра (фоновая доставка, не блокирующая кадры).</summary>
+        /// <summary>A2 на каждом кадре; A3 в фоновом потоке. Паузы перед повторами выдерживаются в масштабе 1:100, чтобы демонстрация шла быстро; в журнал попадают исходные значения.</summary>
         private static void RunAttempt(Trajectory tr, Scenario sc, string attemptId, string server, bool flaky)
         {
             var reg = new RegState();
             var del = new DeliveryState();
             int requestNo = 0;
-            int maxQueue = 0, lostAcks = 0, outageFailures = 0, serverErrors = 0;
+            int lostAcks = 0, outageFailures = 0, serverErrors = 0;
 
             Channel channel = (path, body) =>
             {
@@ -193,15 +193,16 @@ namespace Simulator.Client.Demo
                 }
             };
 
+            System.Threading.Thread worker = Delivery.StartWorker(reg.Outbox, del, attemptId, channel,
+                ms => System.Threading.Thread.Sleep((int)(ms / 100)));                  // A3: фоновый поток
             foreach (Frame f in tr.Frames)
             {
                 Registrar.ProcessFrame(reg, sc, f);                                     // A2: кадр обработан без ожидания сети
-                Delivery.Pump(reg.Outbox, del, attemptId, channel, ms => { }, 1);       // A3: одна попытка отправки на кадр
-                maxQueue = Math.Max(maxQueue, reg.Outbox.Count);
             }
-            PumpResult end = Delivery.Pump(reg.Outbox, del, attemptId, channel, ms => { }, 0);   // после завершения — до подтверждения
+            worker.Join();                                                              // после завершения — до подтверждения
+            string end = del.FinishDelivered && reg.Outbox.Count == 0 ? "Done" : "не завершена";
             Console.WriteLine("Кадров " + tr.Frames.Count + "; групп " + (reg.NextBatchNumber - 1) + "; событий " + (reg.NextEventNo - 1)
-                + "; запросов " + del.Requests + "; неудачных отправок " + del.Failures + "; наибольшая очередь " + maxQueue
+                + "; запросов " + del.Requests + "; неудачных отправок " + del.Failures
                 + "; доставка: " + end + "; отклонено " + del.Rejected.Count
                 + (flaky ? "; обрывов " + outageFailures + ", ответов 503 " + serverErrors + ", потерянных подтверждений " + lostAcks
                     + "; паузы, мс: " + string.Join(",", del.Waits) : ""));
