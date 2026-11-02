@@ -79,10 +79,14 @@ $unity = Join-Path 'C:\Program Files\Unity\Hub\Editor' "$ver\Editor\Unity.exe"
 if (-not (Test-Path $unity)) { $unity = $null }
 if ($unity) {
     $ulog = Join-Path $logs 'unity-compile.txt'
-    & $unity -batchmode -nographics -quit -projectPath (Join-Path $PSScriptRoot 'unity-client') -logFile $ulog | Out-Null
+    $proj = Join-Path $PSScriptRoot 'unity-client'
+    # принудительная перекомпиляция: удаляем собранные сборки
+    Remove-Item -Recurse -Force (Join-Path $proj 'Library\ScriptAssemblies'), (Join-Path $proj 'Library\Bee') -ErrorAction SilentlyContinue
+    & $unity -batchmode -nographics -quit -projectPath $proj -logFile $ulog | Out-Null
+    $code = $LASTEXITCODE
     $errors = Select-String -Path $ulog -Pattern 'error CS' -SimpleMatch -ErrorAction SilentlyContinue
-    $built = Select-String -Path $ulog -Pattern 'Assembly-CSharp.dll' -SimpleMatch -ErrorAction SilentlyContinue
-    if ($errors -or -not $built) { throw "Ошибки компиляции в Unity (см. $ulog)" }
+    $dll = Join-Path $proj 'Library\ScriptAssemblies\Assembly-CSharp.dll'
+    if ($code -ne 0 -or $errors -or -not (Test-Path $dll)) { throw "Ошибки компиляции в Unity (см. $ulog)" }
     Write-Host "Unity ($unity): скрипты скомпилированы без ошибок"
 } else {
     Write-Host 'Редактор Unity не найден: шаг пропущен'
