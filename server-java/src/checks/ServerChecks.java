@@ -3,6 +3,7 @@ package checks;
 import sim.Compare;
 import sim.Completeness;
 import sim.Evaluate;
+import sim.HttpApi;
 import sim.Json;
 import sim.Prepare;
 import sim.Receive;
@@ -52,6 +53,7 @@ public final class ServerChecks {
         checkA5A6(dataMain);
         checkA7(dataV);
         checkRestart(dataMain);
+        checkHttp(dataMain);
 
         System.out.println();
         System.out.println("Серверные проверки: выполнено " + total + ", ошибок " + failed);
@@ -582,6 +584,58 @@ public final class ServerChecks {
             el.add(Json.obj("event_no", e[1], "batch_number", e[0], "t_ms", 0L, "type", "POSITION_SAMPLE", "context", Json.obj()));
         }
         return Json.obj("attempt_id", "t", "batches", bl, "events", el);
+    }
+
+    // ================================================================= HTTP: 400 и 500
+
+    /** Замечание 3 рецензии: 400 — только ошибка входного запроса; сбой хранилища — 500, и сообщение можно повторить. */
+    private static void checkHttp(Path data) throws IOException {
+        System.out.println("--- HTTP. Разделение ошибок запроса (400) и сервера (500) ---");
+        Path store = fresh("http");
+        String id = create(data, store, "L-001", "stop-zone");
+        List<Map<String, Object>> ev = new ArrayList<>();
+        boundary(ev, 1000, "EXIT");
+        String batch = Json.write(batchMsg(1, ev));
+        com.sun.net.httpserver.HttpServer server = HttpApi.start(0, data, store);
+        java.io.PrintStream err = System.err;
+        try {
+            String base = "http://127.0.0.1:" + server.getAddress().getPort();
+            String messages = base + "/attempts/" + id + "/messages";
+            check("HTTP тело не является JSON: 400", post(messages, "{не json") == 400, "");
+            check("HTTP тело — массив вместо объекта: 400", post(messages, "[]") == 400, "");
+            check("HTTP learner_id не строка: 400", post(base + "/attempts", "{\"learner_id\":5,\"exercise_id\":\"stop-zone\"}") == 400, "");
+            check("HTTP группа с batch_number = 0: 400", post(messages,
+                Json.write(Json.obj("kind", "BATCH", "batch_number", 0L, "event_count", 0L, "events", new ArrayList<Object>()))) == 400, "");
+
+            Path attemptFile = Storage.attemptDir(store, id).resolve("attempt.json");
+            byte[] saved = Files.readAllBytes(attemptFile);
+            Files.write(attemptFile, "{повреждено".getBytes(StandardCharsets.UTF_8));
+            System.setErr(new java.io.PrintStream(java.io.OutputStream.nullOutputStream()));   // ожидаемая трассировка сбоя
+            int broken = post(messages, batch);
+            System.setErr(err);
+            check("HTTP корректная группа при повреждённом attempt.json: 500, а не 400", broken == 500, "код " + broken);
+            check("HTTP после ответа 500 журнал не изменён", !Files.exists(Storage.attemptDir(store, id).resolve("log.json")), "");
+            Files.write(attemptFile, saved);
+            int again = post(messages, batch);
+            check("HTTP повтор той же группы после восстановления данных: 200, группа записана",
+                again == 200 && Files.exists(Storage.attemptDir(store, id).resolve("log.json")), "код " + again);
+        } finally {
+            System.setErr(err);
+            server.stop(0);
+        }
+    }
+
+    private static int post(String url, String body) throws IOException {
+        try {
+            java.net.http.HttpResponse<String> r = java.net.http.HttpClient.newHttpClient().send(
+                java.net.http.HttpRequest.newBuilder(java.net.URI.create(url))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build(),
+                java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return r.statusCode();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(e);
+        }
     }
 
     // ================================================================= вспомогательное

@@ -59,16 +59,25 @@ public final class HttpApi {
             String[] parts = path.split("/");   // "", "attempts", "{id}", "messages"
             synchronized (LOCK) {
                 if (method.equals("POST") && path.equals("/attempts")) {
-                    Map<String, Object> req = Json.map(Json.parse(readBody(ex)));
-                    Map<String, Object> r = Prepare.createAttempt(data, store,
-                        asString(req.get("learner_id")), asString(req.get("exercise_id")),
-                        req.get("scenario_version") == null ? null : Json.integer(req.get("scenario_version")),
-                        req.get("rules_version") == null ? null : Json.integer(req.get("rules_version")),
-                        Instant.now().toString());
+                    Map<String, Object> req = requestBody(ex);
+                    String learnerId;
+                    String exerciseId;
+                    Long scenarioVersion;
+                    Long rulesVersion;
+                    try {
+                        learnerId = asString(req.get("learner_id"));
+                        exerciseId = asString(req.get("exercise_id"));
+                        scenarioVersion = req.get("scenario_version") == null ? null : Json.integer(req.get("scenario_version"));
+                        rulesVersion = req.get("rules_version") == null ? null : Json.integer(req.get("rules_version"));
+                    } catch (IllegalArgumentException | ClassCastException | NullPointerException e) {
+                        throw new BadRequest(e);
+                    }
+                    Map<String, Object> r = Prepare.createAttempt(data, store, learnerId, exerciseId,
+                        scenarioVersion, rulesVersion, Instant.now().toString());
                     code = (int) Json.integer(r.get("code"));
                     body = r;
                 } else if (method.equals("POST") && parts.length == 4 && parts[1].equals("attempts") && parts[3].equals("messages")) {
-                    Map<String, Object> msg = Json.map(Json.parse(readBody(ex)));
+                    Map<String, Object> msg = requestBody(ex);
                     Map<String, Object> r = Receive.receive(data, store, parts[2], msg);
                     code = (int) Json.integer(r.get("code"));
                     body = r;
@@ -101,18 +110,38 @@ public final class HttpApi {
                     body = Json.obj("message", "маршрут не найден");
                 }
             }
-        } catch (IllegalArgumentException | ClassCastException | NullPointerException e) {
-            code = 400;   // разбор тела запроса не удался: некорректный JSON или структура
-            body = Json.obj("message", "неверный формат запроса: " + e.getMessage());
+        } catch (BadRequest e) {
+            code = 400;   // ошибка во входном запросе: клиент не должен повторять это сообщение
+            body = Json.obj("status", "BAD_FORMAT", "message", "неверный формат запроса: " + e.getMessage());
         } catch (RuntimeException e) {
+            // сбой чтения хранилища или расчёта: запрос корректен, клиент оставит сообщение в очереди и повторит
             code = 500;
-            body = Json.obj("message", "внутренняя ошибка: " + e.getMessage());
+            body = Json.obj("status", "SERVER_ERROR", "message", "внутренняя ошибка сервера");
+            System.err.println("[HttpApi] " + ex.getRequestMethod() + " " + ex.getRequestURI() + ": внутренняя ошибка");
+            e.printStackTrace();
         }
         byte[] bytes = Json.write(body).getBytes(StandardCharsets.UTF_8);
         ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
         ex.sendResponseHeaders(code, bytes.length);
         try (OutputStream os = ex.getResponseBody()) {
             os.write(bytes);
+        }
+    }
+
+    /** Ошибка разбора или проверки входного запроса — единственный источник ответа 400 в обработчике. */
+    static final class BadRequest extends RuntimeException {
+        BadRequest(Throwable cause) {
+            super(cause.getMessage(), cause);
+        }
+    }
+
+    /** Разбирает тело запроса как JSON-объект; любая ошибка разбора относится к запросу (400). */
+    private static Map<String, Object> requestBody(HttpExchange ex) throws IOException {
+        String text = readBody(ex);
+        try {
+            return Json.map(Json.parse(text));
+        } catch (IllegalArgumentException | ClassCastException | NullPointerException e) {
+            throw new BadRequest(e);
         }
     }
 

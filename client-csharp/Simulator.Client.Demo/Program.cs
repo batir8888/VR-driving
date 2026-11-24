@@ -200,7 +200,8 @@ namespace Simulator.Client.Demo
                 Registrar.ProcessFrame(reg, sc, f);                                     // A2: кадр обработан без ожидания сети
             }
             worker.Join();                                                              // после завершения — до подтверждения
-            string end = del.FinishDelivered && reg.Outbox.Count == 0 ? "Done" : "не завершена";
+            string end = del.FinishDelivered && reg.Outbox.Count == 0 ? "Done"
+                : del.FinishRejected ? "завершение отклонено: " + del.FinishRejectReason : "не завершена";
             Console.WriteLine("Кадров " + tr.Frames.Count + "; групп " + (reg.NextBatchNumber - 1) + "; событий " + (reg.NextEventNo - 1)
                 + "; запросов " + del.Requests + "; неудачных отправок " + del.Failures
                 + "; доставка: " + end + "; отклонено " + del.Rejected.Count

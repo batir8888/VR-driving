@@ -221,7 +221,8 @@ namespace Simulator.Client.Checks
             {
                 Received.Add(body);
                 int code = Answers.Count > 0 ? Answers.Dequeue() : Default;
-                return code < 0 ? null : new ChannelResponse(code, "{}");
+                return code < 0 ? null
+                    : new ChannelResponse(code, code >= 400 && code < 500 ? "{\"status\":\"BAD_FORMAT\",\"message\":\"отказ " + code + "\"}" : "{}");
             }
         }
 
@@ -267,6 +268,24 @@ namespace Simulator.Client.Checks
             q = Queue(); d = new DeliveryState(); script = new Script(404);
             Delivery.Pump(q, d, "a-9999", script.Send, ms => { });
             Check("A3 ответ 404 (неизвестная попытка): повтор не выполняется, сообщение в списке отклонённых", d.Rejected.Count == 1 && d.Retries == 0, "");
+
+            // 400 на FINISH (замечание 2 рецензии): доставка заканчивается явным исходом, а не ожиданием
+            q = Queue(); d = new DeliveryState(); script = new Script(200, 200, 200, 400);
+            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { });
+            Check("A3 ответ 400 на FINISH: исход FinishRejected, попытка не считается завершённой, причина сохранена",
+                r == PumpResult.FinishRejected && d.FinishRejected && !d.FinishDelivered && q.Count == 0
+                && d.FinishRejectReason != null && d.FinishRejectReason.Contains("BAD_FORMAT")
+                && d.Rejected.Count == 1 && d.Rejected[0].Reason == d.FinishRejectReason, r.ToString());
+            Check("A3 отклонённый FINISH не отправлялся повторно (всего 4 запроса)", d.Requests == 4 && d.Retries == 0, "запросов " + d.Requests);
+            r = Delivery.Pump(q, d, "a-0001", script.Send, ms => { });
+            Check("A3 повторный вызов после отклонённого FINISH возвращает FinishRejected, а не WaitForMessages",
+                r == PumpResult.FinishRejected && d.Requests == 4, r.ToString());
+            q = Queue(); d = new DeliveryState(); script = new Script(200, 200, 200, 400);
+            System.Threading.Thread rejectedWorker = Delivery.StartWorker(q, d, "a-0001", script.Send, ms => { });
+            bool workerEnded = rejectedWorker.Join(2000);
+            if (!workerEnded) { d.Stop.Set(); rejectedWorker.Join(); }
+            Check("A3 фоновый поток после отклонённого FINISH завершается сам, без внешней остановки",
+                workerEnded && d.FinishRejected, workerEnded ? "" : "поток продолжал ждать");
 
             // связь недоступна: очередь сохраняется
             q = Queue(); d = new DeliveryState(); script = new Script(); script.Default = -1;

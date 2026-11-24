@@ -140,6 +140,8 @@ namespace Simulator.Client
     {
         public Message Message;
         public int Code;
+        /// <summary>Тело ответа сервера с причиной отказа.</summary>
+        public string Reason;
     }
 
     /// <summary>Состояние доставки (вне модели данных, A3).</summary>
@@ -149,6 +151,9 @@ namespace Simulator.Client
         public long DelayMaxMs = 8000;
         public long DelayMs = 1000;
         public bool FinishDelivered;
+        /// <summary>Сервер отклонил сообщение о завершении (4xx): попытка на сервере не завершена.</summary>
+        public bool FinishRejected;
+        public string FinishRejectReason;
         public List<RejectedMessage> Rejected = new List<RejectedMessage>();
         public List<long> Waits = new List<long>();     // журнал пауз перед повторами (для проверки роста до предела)
         public int Requests;
@@ -162,6 +167,7 @@ namespace Simulator.Client
     {
         Done,               // очередь пуста, завершение доставлено (блок 2, «да»)
         WaitForMessages,    // очередь пуста, ждём новые сообщения (блок 3)
-        Suspended           // доставка остановлена по просьбе (DeliveryState.Stop); очередь сохранена
+        Suspended,          // доставка остановлена по просьбе (DeliveryState.Stop); очередь сохранена
+        FinishRejected      // сервер отклонил FINISH (4xx): доставка закончена, попытка не завершена, причина в FinishRejectReason
     }
 }

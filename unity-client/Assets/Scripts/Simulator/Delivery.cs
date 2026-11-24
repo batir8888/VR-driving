@@ -30,6 +30,10 @@ namespace Simulator.Client
                     // блок 1: очередь пуста?
                     if (queue.Count == 0)
                     {
+                        if (d.FinishRejected)
+                        {
+                            return PumpResult.FinishRejected;
+                        }
                         // блок 2: сообщение о завершении уже доставлено?
                         return d.FinishDelivered ? PumpResult.Done : PumpResult.WaitForMessages;   // блок 3: ждать новое сообщение
                     }
@@ -59,7 +63,15 @@ namespace Simulator.Client
                         if (r.Code >= 400 && r.Code < 500)                          // блок 9: код 4xx?
                         {
                             lock (queue) { queue.RemoveAt(0); }                     // блок 10: в список отклонённых, уведомить интерфейс
-                            d.Rejected.Add(new RejectedMessage { Message = m, Code = r.Code });
+                            d.Rejected.Add(new RejectedMessage { Message = m, Code = r.Code, Reason = r.Body });
+                            if (m.Kind == "FINISH")
+                            {
+                                // сервер не принял завершение: ждать больше нечего, поток должен закончить работу,
+                                // а вызывающий код — показать причину и не считать попытку завершённой
+                                d.FinishRejected = true;
+                                d.FinishRejectReason = r.Body;
+                                return PumpResult.FinishRejected;
+                            }
                             break;
                         }
                     }
@@ -77,7 +89,7 @@ namespace Simulator.Client
             }
         }
 
-        /// <summary>Запускает Pump в фоновом потоке: блок 3 — короткое ожидание новых сообщений. Поток завершается после Done или просьбы об остановке.</summary>
+        /// <summary>Запускает Pump в фоновом потоке: блок 3 — короткое ожидание новых сообщений. Поток завершается после Done, FinishRejected или просьбы об остановке.</summary>
         /// <param name="wait">Пауза перед повтором; null — реальная пауза, которую прерывает DeliveryState.Stop.</param>
         public static Thread StartWorker(List<Message> queue, DeliveryState d, string attemptId, Channel channel, Action<long> wait)
         {
